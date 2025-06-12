@@ -1,65 +1,71 @@
 import pyautogui
 import time
 import pyperclip
-from openai import OpenAI
+import logging
+from openai_custom import get_chat_response  # Custom module for OpenAI calls
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
+# Screen coordinates (update if needed based on your screen resolution)
+CHROME_ICON_COORDS = (1639, 1412)
+SELECTION_START = (972, 202)
+SELECTION_END = (2213, 1278)
+TEXT_INPUT_COORDS = (1808, 1328)
+CHAT_AREA_CLICK = (1994, 281)
 
+# Target contact name to listen to
+TARGET_NAME = "Rohan Das"
 
-client = OpenAI(
-  api_key="<Your Key Here>",
-)
+def is_last_message_from_sender(chat_log: str, sender_name: str = TARGET_NAME) -> bool:
+    try:
+        last_line = chat_log.strip().split("/2024] ")[-1]
+        return sender_name in last_line
+    except Exception as e:
+        logging.error(f"Error parsing chat: {e}")
+        return False
 
-def is_last_message_from_sender(chat_log, sender_name="Rohan Das"):
-    # Split the chat log into individual messages
-    messages = chat_log.strip().split("/2024] ")[-1]
-    if sender_name in messages:
-        return True 
-    return False
-    
-    
+def main():
+    logging.info("🤖 Aryan Bot is now active...")
 
-    # Step 1: Click on the chrome icon at coordinates (1639, 1412)
-pyautogui.click(1639, 1412)
+    # Step 1: Click to open browser or chat
+    pyautogui.click(*CHROME_ICON_COORDS)
+    time.sleep(2)
 
-time.sleep(1)  # Wait for 1 second to ensure the click is registered
-while True:
-    time.sleep(5)
-    # Step 2: Drag the mouse from (1003, 237) to (2187, 1258) to select the text
-    pyautogui.moveTo(972,202)
-    pyautogui.dragTo(2213, 1278, duration=2.0, button='left')  # Drag for 1 second
+    while True:
+        time.sleep(5)  # Polling interval
 
-    # Step 3: Copy the selected text to the clipboard
-    pyautogui.hotkey('ctrl', 'c')
-    time.sleep(2)  # Wait for 1 second to ensure the copy command is completed
-    pyautogui.click(1994, 281)
+        # Step 2: Select chat content
+        pyautogui.moveTo(*SELECTION_START)
+        pyautogui.dragTo(*SELECTION_END, duration=2.0, button='left')
+        pyautogui.hotkey('ctrl', 'c')
+        time.sleep(1.5)
 
-    # Step 4: Retrieve the text from the clipboard and store it in a variable
-    chat_history = pyperclip.paste()
+        # Step 3: Refocus to ensure clipboard access
+        pyautogui.click(*CHAT_AREA_CLICK)
+        time.sleep(1)
 
-    # Print the copied text to verify
-    print(chat_history)
-    print(is_last_message_from_sender(chat_history))
-    if is_last_message_from_sender(chat_history):
-        completion = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a person named Naruto who speaks hindi as well as english. You are from India and you are a coder. You analyze chat history and roast people in a funny way. Output should be the next chat response (text message only)"},
-            {"role": "system", "content": "Do not start like this [21:02, 12/6/2024] Rohan Das: "},
-            {"role": "user", "content": chat_history}
-        ]
-        )
+        # Step 4: Get chat history
+        chat_history = pyperclip.paste()
+        logging.info("📄 Chat history captured")
 
-        response = completion.choices[0].message.content
-        pyperclip.copy(response)
+        if is_last_message_from_sender(chat_history):
+            logging.info("✅ Message from Rohan Das detected. Generating Aryan's reply...")
 
-        # Step 5: Click at coordinates (1808, 1328)
-        pyautogui.click(1808, 1328)
-        time.sleep(1)  # Wait for 1 second to ensure the click is registered
+            response = get_chat_response(chat_history)
+            pyperclip.copy(response)
 
-        # Step 6: Paste the text
-        pyautogui.hotkey('ctrl', 'v')
-        time.sleep(1)  # Wait for 1 second to ensure the paste command is completed
+            # Step 5: Send the message
+            pyautogui.click(*TEXT_INPUT_COORDS)
+            time.sleep(1)
+            pyautogui.hotkey('ctrl', 'v')
+            time.sleep(1)
+            pyautogui.press('enter')
 
-        # Step 7: Press Enter
-        pyautogui.press('enter')
+            logging.info(f"📤 Aryan replied: {response}")
+        else:
+            logging.info("⏸ No new message from Rohan Das.")
+
+if __name__ == "__main__":
+    main()
+
